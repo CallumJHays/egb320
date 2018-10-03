@@ -1,9 +1,10 @@
-from .DetectionModelTuner import DetectionModelTunerABC
+from .DetectionModelTunerABC import DetectionModelTunerABC
 from ..ColorSpacePicker import ColorSpacePicker
 import ipywidgets as ipy
 from VisionSystem import VisionSystem, VisualObject
 from ...DisplayPane import DisplayPane
 import cv2
+import math
 
 
 
@@ -77,33 +78,38 @@ class ThreshBlobTuner(DetectionModelTunerABC):
         sliders = []
 
         for param_name in param_names:
-
-
+            slider_value = (
+                getattr(self.detection_model.blob_detector_params, 'min' + param_name),
+                getattr(self.detection_model.blob_detector_params, 'max' + param_name)
+            )
             # make sure maxArea is only set to the number of pixels on the screen
             if param_name == 'Area':
                 length, width, _ = self.model_display.raw_img.shape
-                slider_range = (1, length * width)
+                max_exponent = math.log(length * width)
+                slider_range = (1, max_exponent)
                 self.detection_model.blob_detector_params.maxArea = length * width
+                slider_value = (math.log(slider_value[0]), math.log(slider_value[1]))
             else:
                 slider_range = (0.0, 1.0)
 
             def on_change(param_name):
                 def update(change):
                     newMin, newMax = change['new']
+                    if param_name == 'Area':
+                        newMin = math.exp(newMin)
+                        newMax = math.exp(newMax)
                     setattr(self.detection_model.blob_detector_params, 'min' + param_name, newMin)
                     setattr(self.detection_model.blob_detector_params, 'max' + param_name, newMax)
                     self.model_display.update_data_and_display()
+                    self.display_pane.update_data_and_display()
                 return update
 
             slider = ipy.FloatRangeSlider(
                 description=param_name,
                 min=slider_range[0],
                 max=slider_range[1],
-                value=(
-                    getattr(self.detection_model.blob_detector_params, 'min' + param_name),
-                    getattr(self.detection_model.blob_detector_params, 'max' + param_name)
-                ),
-                step=0.01
+                value=slider_value,
+                step=0.0001
             )
             slider.layout.width = '95%'
             slider.observe(on_change(param_name), 'value')

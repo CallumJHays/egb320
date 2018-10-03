@@ -1,6 +1,7 @@
 import bqplot as bq
 import ipywidgets as ipy
 import cv2
+import numpy as np
 
 
 
@@ -10,10 +11,12 @@ class DisplayPane(ipy.VBox):
     FULL_INTERNAL_WIDTH = 745
     FULL_OFFSET = 240
 
-    def __init__(self, path=None, img=None, is_video=False, interactors=None, size=None, vision_system=None, filter_fn=None, apply_filter_to_vision_system_input=False, update_frame_cbs=None, **kwargs):
+    def __init__(self, camera=None, path=None, img=None, is_video=False, interactors=None, size=None, vision_system=None, \
+            filter_fn=None, apply_filter_to_vision_system_input=False, update_frame_cbs=None, **kwargs):
+
         if not (path is None) ^ (img is None):
             raise Exception("either path or img must be defined, and not both")
-
+        
         self.bq_img = None
         self.raw_img = None
         self.video_capture = None # until potentially overwritten
@@ -29,14 +32,16 @@ class DisplayPane(ipy.VBox):
         # read the data from a file to display
         if img is None:
             if is_video:
-                self.video_capture = cv2.VideoCapture(path)
-                if not self.video_capture.isOpened():
-                    raise ValueError("Video at " + path + " cannot be opened")
-                self.raw_img = read_frame(self.video_capture, 0)
+                self.setup_video(path)
+            elif camera is not None:
+                self.setup_video(camera)
             else:
                 self.raw_img = cv2.imread(path)
         else:
             self.raw_img = img
+
+        self.filtered_img = np.zeros(self.raw_img.shape)
+        self.labelled_img = np.zeros(self.raw_img.shape)
 
         self.update_data_and_display()
 
@@ -70,6 +75,13 @@ class DisplayPane(ipy.VBox):
         vbox_list += hbox_list
         
         super().__init__(vbox_list, **kwargs)
+
+
+    def setup_video(self, source):
+        self.video_capture = cv2.VideoCapture(source)
+        if not self.video_capture.isOpened():
+            raise ValueError("Video at " + source + " cannot be opened")
+        self.raw_img = read_frame(self.video_capture, 0)
         
 
     def make_image_plot(self):
@@ -195,15 +207,14 @@ class DisplayPane(ipy.VBox):
 
     def update_data_and_display(self):
         # filter the image if need be
-        if self.filter_fn is None:
-            self.filtered_img = self.raw_img
-        else:
-            self.filtered_img = self.filter_fn(self.raw_img)
-
+        self.filtered_img[:] = self.raw_img[:]
+        if self.filter_fn is not None:
+            print(self.filtered_img.shape)
+            self.filter_fn(self.filtered_img)
+        
+        self.labelled_img[:] = self.filtered_img[:]
         if self.vision_system is not None:
-            self.labelled_img = self.vision_system.update_with_and_label_frame(self.filtered_img)
-        else:
-            self.labelled_img = self.filtered_img
+            self.vision_system.update_with_and_label_frame(self.labelled_img)
 
         for cb in self.update_frame_cbs:
             cb()

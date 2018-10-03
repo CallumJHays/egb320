@@ -1,4 +1,5 @@
 from ..DetectionModel import DetectionModel
+from ..DetectionResult import DetectionResult
 from .Thresholder import Thresholder
 import cv2
 import pickle
@@ -37,17 +38,23 @@ class ThreshBlob(DetectionModel):
     def apply(self, frame):
         mask = self.thresholder.apply(frame)
         blob_detector = cv2.SimpleBlobDetector_create(self.blob_detector_params)
-        return blob_detector.detect(mask)
+
+        results = []
+        for keypoint in blob_detector.detect(mask):
+            x, y = keypoint.pt
+            radius = keypoint.size / 2
+            results.append(DetectionResult(
+                coords=((int(x - radius), int(y - radius)), (int(x + radius), int(y + radius))),
+                bitmask=mask
+            ))
+
+        return results
 
     
     # overwrite the standard pickle method because cv objects cannot be pickled (C-based structure)
     @staticmethod
     def load(path):
         data = pickle.load(open(path, 'rb'))
-
-        print(data['thresholder'].colorspace)
-        print(data['thresholder'].lower)
-        print(data['thresholder'].upper)
         
         blob_detector_params = cv2.SimpleBlobDetector_Params()
         param_names = ['Area', 'Circularity', 'InertiaRatio', 'Convexity']

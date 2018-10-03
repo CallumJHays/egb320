@@ -4,17 +4,16 @@ import ipywidgets as ipy
 
 class SegmentSelector(Interactor):
     
-    # mark to draw over the image plot also used to
-    # define the bounding box for which the segment is defined
-    segment_mark = None 
-    segment_drawer = None # segment drawing interactor
-    # upon which diagonal to draw the segment
-    # within the selected bounding box
-    segment_draw_diagonal = False
-    title = "Segment Selector: "
 
 
     def __init__(self, title="Segment Selector: "):
+        # mark to draw over the image plot also used to
+        # define the bounding box for which the segment is defined
+        self.segment_mark = None 
+        self.segment_drawer = None # segment drawing interactor
+        # upon which diagonal to draw the segment
+        # within the selected bounding box
+        self.segment_draw_diagonal = False
         self.title = title
 
 
