@@ -30,6 +30,6 @@ class ColorSpace():
 
 class ColorSpaces(Enum):
 
-    RGB = ColorSpace("RGB", None, ['Blue', 'Green', 'Red'])
+    BGR = ColorSpace("BGR", None, ['Blue', 'Green', 'Red'])
     HSV = ColorSpace("HSV", cv2.COLOR_BGR2HSV, ['Hue', 'Saturation', 'Value'])
     CIELab = ColorSpace("CIELab", cv2.COLOR_BGR2Lab, ['L', 'a', 'b'])

@@ -2,6 +2,7 @@ from .DetectionModelTunerABC import DetectionModelTunerABC
 from ..ColorSpacePicker import ColorSpacePicker
 import ipywidgets as ipy
 from VisionSystem import VisionSystem, VisualObject
+from VisionSystem.DetectionModel import ColorSpaces
 from ...DisplayPane import DisplayPane
 import cv2
 import math
@@ -23,12 +24,13 @@ class ThreshBlobTuner(DetectionModelTunerABC):
     def make_thresholder_controls(self):
         colorspace_picker = ColorSpacePicker(colorspace=self.detection_model.thresholder.colorspace)
 
-        def threshold_with_color(img):
-            mask = self.detection_model.thresholder.apply(img)
+        def threshold_with_color(frame):
+            mask = self.detection_model.thresholder.apply(frame)
+            img = frame.get(ColorSpaces.BGR)
             return cv2.bitwise_and(img, img, mask=mask)
 
         self.model_display = DisplayPane(
-            img=self.display_pane.raw_img,
+            frame=self.display_pane.raw_frame,
             size=self.display_pane.size,
             interactors=[colorspace_picker],
             filter_fn=threshold_with_color,
@@ -82,13 +84,14 @@ class ThreshBlobTuner(DetectionModelTunerABC):
                 getattr(self.detection_model.blob_detector_params, 'min' + param_name),
                 getattr(self.detection_model.blob_detector_params, 'max' + param_name)
             )
+
             # make sure maxArea is only set to the number of pixels on the screen
             if param_name == 'Area':
-                length, width, _ = self.model_display.raw_img.shape
+                length, width, _ = self.model_display.raw_frame.get(ColorSpaces.BGR).shape
                 max_exponent = math.log(length * width)
                 slider_range = (1, max_exponent)
                 self.detection_model.blob_detector_params.maxArea = length * width
-                slider_value = (math.log(slider_value[0]), math.log(slider_value[1]))
+                slider_value = (math.log(slider_value[0]), math.log(self.detection_model.blob_detector_params.maxArea))
             else:
                 slider_range = (0.0, 1.0)
 
@@ -101,7 +104,6 @@ class ThreshBlobTuner(DetectionModelTunerABC):
                     setattr(self.detection_model.blob_detector_params, 'min' + param_name, newMin)
                     setattr(self.detection_model.blob_detector_params, 'max' + param_name, newMax)
                     self.model_display.update_data_and_display()
-                    self.display_pane.update_data_and_display()
                 return update
 
             slider = ipy.FloatRangeSlider(

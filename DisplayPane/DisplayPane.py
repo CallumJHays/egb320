@@ -2,6 +2,7 @@ import bqplot as bq
 import ipywidgets as ipy
 import cv2
 import numpy as np
+from VisionSystem.DetectionModel import Frame, ColorSpaces
 
 
 
@@ -11,14 +12,14 @@ class DisplayPane(ipy.VBox):
     FULL_INTERNAL_WIDTH = 745
     FULL_OFFSET = 240
 
-    def __init__(self, camera=None, path=None, img=None, is_video=False, interactors=None, size=None, vision_system=None, \
-            filter_fn=None, apply_filter_to_vision_system_input=False, update_frame_cbs=None, **kwargs):
+    def __init__(self, camera=None, path=None, img=None, is_video=False, interactors=None, size=1, vision_system=None, frame=None, \
+            filter_fn=None, apply_filter_to_vision_system_input=False, update_frame_cbs=None, display_colorspace=ColorSpaces.BGR.value, **kwargs):
 
-        if not (path is None) ^ (img is None):
-            raise Exception("either path or img must be defined, and not both")
+        if not (path is not None) ^ (img is not None) ^ (frame is not None):
+            raise Exception("either path, img or frame must be defined, and not both")
         
         self.bq_img = None
-        self.raw_img = None
+        self.raw_frame = None
         self.video_capture = None # until potentially overwritten
         self.size = size or 1
         self.togglebutton_group = []
@@ -27,21 +28,29 @@ class DisplayPane(ipy.VBox):
         self.filter_fn = filter_fn
         self.apply_filter_to_vision_system_input = apply_filter_to_vision_system_input
         self.image_plot_scales = {'x': bq.LinearScale(), 'y': bq.LinearScale()}
+
+        if display_colorspace in ColorSpaces:
+            self.display_colorspace = display_colorspace.value
+        else:
+            self.display_colorspace = display_colorspace
+
         self.update_frame_cbs = update_frame_cbs or []
         
         # read the data from a file to display
         if img is None:
-            if is_video:
+            if frame is not None:
+                self.raw_frame = frame
+            elif is_video:
                 self.setup_video(path)
             elif camera is not None:
                 self.setup_video(camera)
             else:
-                self.raw_img = cv2.imread(path)
+                self.raw_frame = Frame(cv2.imread(path))
         else:
-            self.raw_img = img
+            self.raw_frame = Frame(img)
 
-        self.filtered_img = np.zeros(self.raw_img.shape)
-        self.labelled_img = np.zeros(self.raw_img.shape)
+        self.filtered_frame = Frame.copy_of(self.raw_frame)
+        self.labelled_frame = Frame.copy_of(self.filtered_frame)
 
         self.update_data_and_display()
 
@@ -81,7 +90,7 @@ class DisplayPane(ipy.VBox):
         self.video_capture = cv2.VideoCapture(source)
         if not self.video_capture.isOpened():
             raise ValueError("Video at " + source + " cannot be opened")
-        self.raw_img = read_frame(self.video_capture, 0)
+        self.raw_frame = read_frame(self.video_capture, 0)
         
 
     def make_image_plot(self):
@@ -95,7 +104,7 @@ class DisplayPane(ipy.VBox):
             padding_y=0
         )
         
-        height, width, _ = self.raw_img.shape
+        height, width, _ = self.raw_frame.get(ColorSpaces.BGR).shape
         # make sure the image is displayed with the correct aspect ratio
         image_plot.layout.width = '100%'
         image_plot.layout.margin = '0'
@@ -172,7 +181,7 @@ class DisplayPane(ipy.VBox):
 
         def on_framechange(change):
             frame_idx = change['new']
-            self.raw_img = read_frame(self.video_capture, frame_idx)
+            self.raw_frame = read_frame(self.video_capture, frame_idx)
             self.update_data_and_display()
 
         player.observe(on_framechange, 'value')
@@ -207,19 +216,18 @@ class DisplayPane(ipy.VBox):
 
     def update_data_and_display(self):
         # filter the image if need be
-        self.filtered_img[:] = self.raw_img[:]
+        self.filtered_frame.copy_bgr(self.raw_frame.get(ColorSpaces.BGR))
         if self.filter_fn is not None:
-            print(self.filtered_img.shape)
-            self.filter_fn(self.filtered_img)
+            self.filtered_frame.link_bgr(self.filter_fn(self.filtered_frame))
         
-        self.labelled_img[:] = self.filtered_img[:]
+        self.labelled_frame.copy_bgr(self.filtered_frame.get(ColorSpaces.BGR))
         if self.vision_system is not None:
-            self.vision_system.update_with_and_label_frame(self.labelled_img)
+            self.labelled_frame.link_bgr(self.vision_system.update_with_and_label_frame(self.labelled_frame))
 
         for cb in self.update_frame_cbs:
             cb()
         
-        ipy_img = ipy.Image(value=cv2.imencode('.jpg', self.labelled_img)[1].tostring(), format='jpg')
+        ipy_img = ipy.Image(value=cv2.imencode('.jpg', self.labelled_frame.get(self.display_colorspace))[1].tostring(), format='jpg')
         
         if self.bq_img is None:
             self.bq_img = bq.Image(image=ipy_img, scales=self.image_plot_scales)
@@ -228,9 +236,8 @@ class DisplayPane(ipy.VBox):
 
 
     def link_frame(self, master_pane):
-
         def on_update_frame():
-            self.raw_img = master_pane.raw_img
+            self.raw_frame = master_pane.raw_frame
             self.update_data_and_display()
 
         master_pane.update_frame_cbs.append(on_update_frame)
@@ -264,6 +271,6 @@ class DisplayPane(ipy.VBox):
 
 def read_frame(video, frame_idx):
     video.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-    _, frame = video.read()
+    _, bgr_img = video.read()
     video.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-    return frame
+    return Frame(bgr_img)
