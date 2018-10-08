@@ -27,7 +27,6 @@ class ColorSpacePicker(Interactor):
         def on_change(change):
             self.colorspace = ColorSpaces[change['new']].value
             self.display_pane.display_colorspace = self.colorspace
-            print(self.colorspace.name)
             self.display_pane.update_data_and_display()
             self.update_observers()
 

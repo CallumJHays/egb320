@@ -2,7 +2,7 @@ from .DetectionModelTunerABC import DetectionModelTunerABC
 from ..ColorSpacePicker import ColorSpacePicker
 import ipywidgets as ipy
 from VisionSystem import VisionSystem, VisualObject
-from VisionSystem.DetectionModel import ColorSpaces
+from VisionSystem.DetectionModel import ColorSpaces, ColorSpaceScale
 from ...DisplayPane import DisplayPane
 import cv2
 import math
@@ -37,42 +37,90 @@ class ThreshBlobTuner(DetectionModelTunerABC):
             vision_system=VisionSystem({ 'obj': VisualObject(detection_model=self.detection_model) })
         )
         self.model_display.link_frame(self.display_pane)
-        sliders = []
+        channel_sliders = []
+        thresh = self.detection_model.thresholder
 
         # make a slider for each channel of the thresholder
-        for idx in range(len(self.detection_model.thresholder.lower)):
-            
+        for idx in range(len(thresh.lower)):
+
+            minVal, maxVal = thresh.colorspace.valRange(idx)
+
             slider = ipy.IntRangeSlider(
-                description=self.detection_model.thresholder.colorspace.channel_labels[idx],
-                value=(
-                    self.detection_model.thresholder.lower[idx],
-                    self.detection_model.thresholder.upper[idx]
-                ),
-                min=0,
-                max=255
+                description=thresh.colorspace.channel_labels[idx],
+                value=(thresh.lower[idx], thresh.upper[idx]),
+                min=minVal,
+                max=maxVal
             )
             slider.layout.width = '95%'
 
             def on_change(idx):
                 def update(change):
-                    self.detection_model.thresholder.update(idx, change['new'])
+                    thresh.update(idx, change['new'])
                     self.model_display.update_data_and_display()
 
                 return update
 
             slider.observe(on_change(idx), 'value')
-            sliders.append(slider)
+            channel_sliders.append(slider)
 
         def on_colorspace_change():
-            self.detection_model.thresholder.colorspace = colorspace_picker.colorspace
+            thresh.colorspace = colorspace_picker.colorspace
 
             # update the descriptions
-            for idx, slider in enumerate(sliders):
-                slider.description = self.detection_model.thresholder.colorspace.channel_labels[idx]
+            for idx, slider in enumerate(channel_sliders):
+                slider.description = thresh.colorspace.channel_labels[idx]
+                minVal, maxVal = thresh.colorspace.valRange(idx)
+                slider.min = minVal
+                slider.max = maxVal
+            
 
         colorspace_picker.observe(on_colorspace_change)
 
-        return ipy.VBox([self.model_display] + sliders)
+        dilation1_slider = ipy.IntSlider(
+            description='Dilation 1',
+            value=thresh.dilation1,
+            min=0,
+            max=50
+        )
+        dilation1_slider.layout.width = '95%'
+
+        erosion1_slider = ipy.IntSlider(
+            description='Erosion 1',
+            value=thresh.erosion1,
+            min=0,
+            max=50
+        )
+        erosion1_slider.layout.width = '95%'
+
+        dilation2_slider = ipy.IntSlider(
+            description='Dilation 2',
+            value=thresh.dilation2,
+            min=0,
+            max=50
+        )
+        dilation2_slider.layout.width = '95%'
+
+        erosion2_slider = ipy.IntSlider(
+            description='Erosion 2',
+            value=thresh.erosion2,
+            min=0,
+            max=50
+        )
+        erosion2_slider.layout.width = '95%'
+
+        def on_change_erosion_dilation(attr):
+            def update(change):
+                setattr(thresh, attr, change['new'])
+                self.model_display.update_data_and_display()
+            return update
+
+        dilation1_slider.observe(on_change_erosion_dilation('dilation1'), 'value')
+        erosion1_slider.observe(on_change_erosion_dilation('erosion1'), 'value')
+        dilation2_slider.observe(on_change_erosion_dilation('dilation2'), 'value')
+        erosion2_slider.observe(on_change_erosion_dilation('erosion2'), 'value')
+
+        return ipy.VBox([self.model_display] + channel_sliders +
+            [dilation1_slider, erosion1_slider, dilation2_slider, erosion2_slider])
 
 
     def make_blob_detector_controls(self):
