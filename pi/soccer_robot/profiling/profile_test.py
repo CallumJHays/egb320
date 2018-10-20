@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from time import time
 
-SHOW_VIDEO = False
+SHOW_VIDEO = True
 
 def relpath(*paths):
     return os.path.join(os.path.dirname(__file__), *paths)
