@@ -3,6 +3,7 @@ from ..DetectionResult import DetectionResult
 from .Thresholder import Thresholder
 import cv2
 import pickle
+import numpy as np
 
 
 class ThreshBlob(DetectionModel):
@@ -37,14 +38,36 @@ class ThreshBlob(DetectionModel):
 
     def apply(self, frame):
         mask = self.thresholder.apply(frame)
+        height, width = mask.shape
         blob_detector = cv2.SimpleBlobDetector_create(self.blob_detector_params)
 
         results = []
         for keypoint in blob_detector.detect(mask):
             x, y = keypoint.pt
-            radius = keypoint.size / 2
+            x, y = int(x), int(y)
+
+            # detect contours to find the true bounding rect
+            contour_padding = int(keypoint.size * 0.75)
+            roi = (
+                (max(y - contour_padding, 0), min(y + contour_padding, height)),
+                (max(x - contour_padding, 0), min(x + contour_padding, width))
+            )
+            _, contours, _ = cv2.findContours(
+                mask[roi[0][0]:roi[0][1], roi[1][0]:roi[1][1]].copy(),
+                cv2.RETR_TREE,
+                cv2.CHAIN_APPROX_SIMPLE
+            )
+
+            (x1, y1), (x2, y2) = find_bounding_box(contours)
+
+            # restore the offsets invoked by ROI-based contour detection
+            x1 += roi[1][0]
+            x2 += roi[1][0]
+            y1 += roi[0][0]
+            y2 += roi[0][0]
+
             results.append(DetectionResult(
-                coords=((int(x - radius), int(y - radius)), (int(x + radius), int(y + radius))),
+                coords=((x1, y1), (x2, y2)),
                 bitmask=mask
             ))
 
@@ -65,6 +88,7 @@ class ThreshBlob(DetectionModel):
 
         return ThreshBlob(thresholder=data['thresholder'], blob_detector_params=blob_detector_params)
 
+
     def save(self, path):
         data = {
             'thresholder': self.thresholder,
@@ -81,3 +105,21 @@ class ThreshBlob(DetectionModel):
 
 
 
+def find_bounding_box(contours):
+    # find the rectangle that includes all points in the contour
+    x1, y1 = 99999999, 999999999
+    x2, y2 = -99999999, -999999999
+
+    for contour in contours:
+        for [[cx, cy]] in contour:
+            if x1 > cx:
+                x1 = cx
+            elif x2 < cx:
+                x2 = cx
+            
+            if y1 > cy:
+                y1 = cy
+            elif y2 < cy:
+                y2 = cy
+
+    return (x1, y1), (x2, y2)

@@ -40,7 +40,7 @@ class VisionSystem():
 
         
     def label_frame(self, frame):
-        img = frame.get(ColorSpaces.BGR)
+        img = frame.get()
         for obj_idx, (name, obj_type) in enumerate(self.objects_to_track.items()):
             for res_idx, (result, (bearing, distance)) in enumerate(zip(obj_type.detection_results, obj_type.bearings_distances)):
                 draw_color = VisionSystem.CATEGORICAL_COLORS[obj_idx]

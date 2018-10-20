@@ -7,7 +7,7 @@ from copy import copy
 
 class Thresholder():
 
-    def __init__(self, colorspace=ColorSpaces.BGR.value, lower=None, upper=None, erosion1=0, dilation1=0, erosion2=0, dilation2=0):
+    def __init__(self, colorspace=ColorSpaces.BGR, lower=None, upper=None, erosion1=0, dilation1=0, erosion2=0, dilation2=0):
         # colorspace <ColorSpace>
         # the colorspace in which the threshold resides
         if colorspace in ColorSpaces:
@@ -20,12 +20,12 @@ class Thresholder():
         # lower list<int>
         # the lower bound of the accepted threshold range. Typically a 1x3 np.array
         # (depends on the color space)
-        self.lower = lower or (0, 0, 0)
+        self.lower = lower or [0, 0, 0]
         
         # lower list<int>
         # the upper bound of the accepted threshold range. Typically a 1x3 np.array
         # (depends on the color space)
-        self.upper = upper or (255, 255, 255)
+        self.upper = upper or [255, 255, 255]
 
         self.dilation1 = dilation1
         self.erosion1 = erosion1
@@ -39,12 +39,12 @@ class Thresholder():
         else:
             colorspace_img = frame
 
-        has_radial = any([scale is ColorSpaceScale.Radial for scale in self.colorspace.channel_scales])
+        has_radial = any([lower < 0 for (lower, _) in self.colorspace.channel_limits])
         has_negative_val = False # until proven true, only possible if there is a radial val    
 
         if has_radial:
-            lowers = [list(copy(self.lower)), list(copy(self.lower))]
-            uppers = [list(copy(self.upper)), list(copy(self.upper))]
+            lowers = [copy(self.lower), copy(self.lower)]
+            uppers = [copy(self.upper), copy(self.upper)]
             
             for idx, (lowerVal, upperVal) in enumerate(zip(self.lower, self.upper)):
                 _, maxVal = self.colorspace.valRange(idx)
@@ -59,23 +59,23 @@ class Thresholder():
 
         if has_negative_val:
             mask = cv2.bitwise_or(
-                cv2.inRange(colorspace_img, tuple(lowers[0]), tuple(uppers[0])),
-                cv2.inRange(colorspace_img, tuple(lowers[1]), tuple(uppers[1]))
+                cv2.inRange(colorspace_img, np.array(lowers[0], dtype=np.uint8), np.array(uppers[0], dtype=np.uint8)),
+                cv2.inRange(colorspace_img, np.array(lowers[1], dtype=np.uint8), np.array(uppers[1], dtype=np.uint8))
             )
         else:
-            mask = cv2.inRange(colorspace_img, self.lower, self.upper)
+            mask = cv2.inRange(colorspace_img, np.array(self.lower, dtype=np.uint8), np.array(self.upper, dtype=np.uint8))
 
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        mask = cv2.dilate(mask, kernel, iterations=self.dilation1)
-        mask = cv2.erode(mask, kernel, iterations=self.erosion1)
-        mask = cv2.dilate(mask, kernel, iterations=self.dilation2)
-        mask = cv2.erode(mask, kernel, iterations=self.erosion2)
+        if self.dilation1 > 0:
+            mask = cv2.dilate(mask, kernel, iterations=self.dilation1)
+        if self.erosion1 > 0:
+            mask = cv2.erode(mask, kernel, iterations=self.erosion1)
+        if self.dilation2 > 0:
+            mask = cv2.dilate(mask, kernel, iterations=self.dilation2)
+        if self.erosion2 > 0:
+            mask = cv2.erode(mask, kernel, iterations=self.erosion2)
         return mask
 
 
     def update(self, channel_idx, new_range):
-        lower_list = list(self.lower)
-        upper_list = list(self.upper)
-        lower_list[channel_idx], upper_list[channel_idx] = new_range
-        self.lower = tuple(lower_list)
-        self.upper = tuple(upper_list)
+        self.lower[channel_idx], self.upper[channel_idx] = new_range

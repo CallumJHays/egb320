@@ -1,4 +1,4 @@
-from .ColorSpace import ColorSpaces
+from .ColorSpace import ColorSpace, ColorSpaces
 import cv2
 import numpy as np
 
@@ -10,11 +10,14 @@ class Frame():
         self.link_bgr(bgr_img)
 
 
-    def get(self, colorspace):
+    def get(self, colorspace=ColorSpaces.BGR):
+        if type(colorspace) is ColorSpace:
+            colorspace = ColorSpaces[colorspace.name]
+        
         if colorspace in self.colorspace2img:
             return self.colorspace2img[colorspace]
         else:
-            self.colorspace2img[colorspace] = colorspace.bgr2this(self.colorspace2img[ColorSpaces.BGR])
+            self.colorspace2img[colorspace] = colorspace.value.bgr2this(self.get())
             return self.colorspace2img[colorspace]
 
 
@@ -34,5 +37,5 @@ class Frame():
     @staticmethod
     def copy_of(frame):
         this = Frame(np.array([]))
-        this.copy_bgr(frame.get(ColorSpaces.BGR))
+        this.copy_bgr(frame.get())
         return this

@@ -1,1 +1,1 @@
-scp -r pi@172.19.31.91:~/Desktop/soccer_robot/data .\pi\soccer_robot
+scp -r pi@172.19.44.35:~/Desktop/soccer_robot/'{data,profiling/profile_data}' .\

@@ -1,5 +1,5 @@
 import math
-
+from .DetectionModel import DetectionResult
 
 
 class VisualObject():
@@ -31,15 +31,15 @@ class VisualObject():
         # the raw detection results that were returned from the model
         self.detection_results = []
 
-        self.result_limit=None
+        self.result_limit = result_limit
 
         
     def update_with_frame(self, frame):
-        self.detection_results = self.detection_model.apply(frame)[0:self.result_limit]
+        self.detection_results = self.detection_model.apply(frame)
+        results = sorted(self.detection_results, key=lambda result: -result.area())[0:self.result_limit]
         self.bearings_distances = []
 
-        if self.detection_results:
-            result = self.detection_results[0]
+        for result in results:
             bearing = ((result.coords[0][0] + result.coords[1][0]) / 2 / self.CAMERA_PIXEL_WIDTH - 0.5) * self.CAMERA_FOV + self.FORWARD_DIRECTION
             pixel_width = result.coords[1][0] - result.coords[0][0]
             pixel_height = result.coords[1][1] - result.coords[0][1]
