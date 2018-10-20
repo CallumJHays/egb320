@@ -7,7 +7,7 @@ class VisualObject():
     # camera is 62.2 degrees wide
     CAMERA_FOV = 62.2 * math.pi / 180
     CAMERA_PIXEL_WIDTH = 640
-    FORWARD_DIRECTION = math.pi
+    FORWARD_DIRECTION = 0
     FOCAL_CONSTANT = 250
 
     
@@ -36,7 +36,9 @@ class VisualObject():
         
     def update_with_frame(self, frame):
         self.detection_results = self.detection_model.apply(frame)
-        results = sorted(self.detection_results, key=lambda result: -result.area())[0:self.result_limit]
+        results = sorted(self.detection_results, key=lambda result: -result.area())
+        if self.result_limit is not None:
+            results = results[0:self.result_limit]
         self.bearings_distances = []
 
         for result in results:
