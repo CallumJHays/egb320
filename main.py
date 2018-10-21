@@ -29,8 +29,8 @@ def setup_vision_system(resolution):
     objects_to_size_and_result_limit = [
         ("ball", (0.043, 0.043, 0.043), 1),
         ("obstacle", (0.18, 0.18, 0.2), None),
-        ("blue_goal", (0.3, 0.3, 0.1), 1), # 30 centimetres long, 10 cm high? i guess
-        ("yellow_goal", (0.3, 0.3, 0.1), 1)
+        # ("blue_goal", (0.3, 0.3, 0.1), 1), # 30 centimetres long, 10 cm high? i guess
+        # ("yellow_goal", (0.3, 0.3, 0.1), 1)
     ]
 
     return VisionSystem(camera_pixel_width=resolution[0], objects_to_track={
@@ -122,6 +122,7 @@ if __name__ == '__main__':
     video_stream = VideoStream(downsample_scale=8)
     vision_system = setup_vision_system(video_stream.resolution)
     drive_system = DriveSystem(speed_modifier=0.5)
+    kicker_system = KickerSystem()
 
     if DEBUG_MODE:
         debug_toools = setup_debug_tools(video_stream.resolution)
