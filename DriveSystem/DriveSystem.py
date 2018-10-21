@@ -4,8 +4,8 @@ import RPi.GPIO as GPIO # Import GPIO Modual
 
 class DriveSystem():
 
-    SPEED_TUNER_CONSTANT = 0.5
-    ROTATION_VEL_2_ACC_TUNER_CONSTANT = 0.5
+    SPEED_TUNER_CONSTANT = 1
+    ROTATION_VEL_2_ACC_TUNER_CONSTANT = 5
     LENGTH_CENTER_2_WHEEL = 0.08 # m
 
 
@@ -41,8 +41,8 @@ class DriveSystem():
     
 
     def setTargetVelocities(self, velx, vely, velRot):
-        V = self.SPEED_TUNER_CONSTANT * math.sqrt(math.pow(velx, 2), math.pow(vely, 2))
-        theta = math.tan(vely / velx)
+        V = self.SPEED_TUNER_CONSTANT * math.sqrt(math.pow(velx, 2) + math.pow(vely, 2))
+        theta = math.atan2(vely, velx)
         A = self.ROTATION_VEL_2_ACC_TUNER_CONSTANT * velRot
         L = self.LENGTH_CENTER_2_WHEEL
 
@@ -55,6 +55,7 @@ class DriveSystem():
     
     def DriveMotors(self, a, b, c): # Converts & Caps Individual Motor Values at PWM of 100
 
+        print(a, b, c)
         # Caps Duty Cycle at 100 with min value of 50
         DutyA = (abs(a)*200) # (abs(a)*130)+30
         DutyB = (abs(b)*200)

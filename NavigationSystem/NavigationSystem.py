@@ -1,4 +1,4 @@
-from numpy import np
+import numpy as np
 import math
 
 
@@ -9,12 +9,14 @@ class NavigationSystem():
     MAX_ROBOT_VEL = 0.05
 
 
-    def __init__(self, vision_system, drive_system):
+    def __init__(self, vision_system, drive_system, kicker_dribbler, debug_print):
         self.vision_system = vision_system
         self.drive_system = drive_system
         self.headingRad = 0
         self.goal_found = False
         self.lastHeading = 0.4
+        self.kicker_dribbler = kicker_dribbler
+        self.debug_print = debug_print
 
 
     def update(self):
@@ -24,56 +26,58 @@ class NavigationSystem():
 
         # perform PID control on the drive system#check to see if ball is in dribbler
         if ball_in_dribbler: # soccerBotSim.BallInDribbler() == True:
-            print("Ball Obtained")
+            self.kicker_dribbler.start_dribbling()
+            self.debug_print("Ball Obtained")
             if self.goal_found:
                 self.drive_system.setTargetVelocities(0, 0, 0.5)
                 if blueRB != None:
                     bGoalRange = blueRB[0]
                     bGoalBearing = blueRB[1]
                     self.goal_found = True
-                    print("Goal Found")
+                    self.debug_print("Goal Found")
             else:
-                print("Heading towards Goal")
+                self.debug_print("Heading towards Goal")
                 if blueRB != None:
                     bGoalRange = blueRB[0]
                     bGoalBearing = blueRB[1]
                 else:
-                    goal_found = False
-                headingRad = self.generatePotentialField(bGoalBearing, obstaclesRB)
+                    self.goal_found = False
+                self.headingRad = self.generatePotentialField(bGoalBearing, obstaclesRB)
                 if obstaclesRB != None:
                     if len(obstaclesRB) == 1:
-                        print("1 Obstacle")
-                        self.avoidSingleObstacle(bGoalRange, bGoalBearing, obstaclesRB, headingRad)
+                        self.debug_print("1 Obstacle")
+                        self.avoidSingleObstacle(bGoalRange, bGoalBearing, obstaclesRB, self.headingRad)
                 else:
-                    desired_rot_vel = min(self.MAX_ROBOT_ROT, max(-self.MAX_ROBOT_ROT, headingRad * self.GOAL_P))
+                    desired_rot_vel = min(self.MAX_ROBOT_ROT, max(-self.MAX_ROBOT_ROT, self.headingRad * self.GOAL_P))
                     desired_vel = self.MAX_ROBOT_VEL * (1.0 - 0.9*abs(desired_rot_vel)/self.MAX_ROBOT_ROT)
                     self.drive_system.setTargetVelocities(desired_vel, 0, desired_rot_vel)
                 if bGoalRange < 0.65:
-                    print("Shoot")
-                    #
-                    # DRIBBLER
-                    #
-                    #soccerBotSim.KickBall(0.5)
+                    self.debug_print("Shoot")
+                    self.kicker_dribbler.kick()
                     self.goal_found = False
                     self.lastHeading = 0.4
         else:
-            print("Looking for Ball")
+            self.kicker_dribbler.stop_dribbling()
+            self.debug_print("Looking for Ball")
             if ballRB == None:
+                self.debug_print("Cant see ball, rotating...")
                 self.drive_system.setTargetVelocities(0, 0, self.lastHeading + 0.1)
-                lastHeading = 0.4
+                self.lastHeading = 0.4
             else:
+                self.debug_print("Ball in sight! chasing it down")
                 # Get Range and Bearing of Ball
                 ballRange = ballRB[0]
                 ballBearing = ballRB[1]
                 self.lastHeading = ballBearing
                 # Generate Potential Field
-                headingRad = self.generatePotentialField(ballBearing, obstaclesRB)
+                self.debug_print("Generating potential field")
+                self.headingRad = self.generatePotentialField(ballBearing, obstaclesRB)
                 if obstaclesRB != None:
                     if len(obstaclesRB) == 1:
-                        print("1 Obstacle")
-                        self.avoidSingleObstacle(ballRange, ballBearing, obstaclesRB, headingRad)
+                        self.debug_print("1 Obstacle")
+                        self.avoidSingleObstacle(ballRange, ballBearing, obstaclesRB, self.headingRad)
                 else:
-                    desired_rot_vel = min(self.MAX_ROBOT_ROT, max(-self.MAX_ROBOT_ROT, headingRad * self.GOAL_P))
+                    desired_rot_vel = min(self.MAX_ROBOT_ROT, max(-self.MAX_ROBOT_ROT, self.headingRad * self.GOAL_P))
                     desired_vel = self.MAX_ROBOT_VEL * (1.0 - 0.9*abs(desired_rot_vel) / self.MAX_ROBOT_ROT)
                     self.drive_system.setTargetVelocities(desired_vel, 0, desired_rot_vel)
 
@@ -182,7 +186,7 @@ class NavigationSystem():
         residualField = self.getResidualField(attractionField, repulsionField)
         headingDeg = np.argmax(residualField)
         headingRad = math.radians(headingDeg - 30)
-        #print(headingDeg)
+        #self.debug_print(headingDeg)
         return headingRad
 
 

@@ -3,12 +3,14 @@ import os
 import cv2
 from time import time
 from tqdm import tqdm
+import RPi.GPIO
 
 # subsystem imports
 from VisionSystem import VisionSystem, VisualObject, VideoStream
 from VisionSystem.DetectionModel import ThreshBlob
 from DriveSystem import DriveSystem
 from KickerSystem import KickerSystem
+from NavigationSystem import NavigationSystem
 
 
 # Debug variables
@@ -16,7 +18,10 @@ DEBUG_MODE = True
 SHOW_LIVE = False # only works in DEBUG_MODE
 raw_debug_writer = None
 labelled_debug_writer = None
+progress_bar = None
 
+if DEBUG_MODE: # ignore this ^_^
+    RPi.GPIO.setwarnings(False)
 
 # helper methods
 def relpath(*paths):
@@ -29,8 +34,8 @@ def setup_vision_system(resolution):
     objects_to_size_and_result_limit = [
         ("ball", (0.043, 0.043, 0.043), 1),
         ("obstacle", (0.18, 0.18, 0.2), None),
-        # ("blue_goal", (0.3, 0.3, 0.1), 1), # 30 centimetres long, 10 cm high? i guess
-        # ("yellow_goal", (0.3, 0.3, 0.1), 1)
+        ("blue_goal", (0.3, 0.3, 0.1), 1), # 30 centimetres long, 10 cm high? i guess
+        ("yellow_goal", (0.3, 0.3, 0.1), 1)
     ]
 
     return VisionSystem(camera_pixel_width=resolution[0], objects_to_track={
@@ -45,6 +50,7 @@ def setup_vision_system(resolution):
 def setup_debug_tools(resolution):
     index = ''
     filename = lambda: relpath('debug_data', 'profile_vid' + index)
+    global progress_bar
     progress_bar = tqdm()
 
     while True:
@@ -75,7 +81,6 @@ def cleanup_debug_tools(debug_tools):
 def mainloop(vision_system, video_stream, nav_system, drive_system, kicker_system, debug_tools=None):
     if DEBUG_MODE:
         (raw_debug_writer, labelled_debug_writer, progress_bar) = debug_tools
-        progress_bar = setup_debug_tools(video_stream.resolution)
         frames_this_sec = 0
         last_sec_fps = 0
         last_sec_time = time()
@@ -117,26 +122,35 @@ def mainloop(vision_system, video_stream, nav_system, drive_system, kicker_syste
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
 
+def debug_print(message):
+    global progress_bar
+    if DEBUG_MODE:
+        progress_bar.set_description(message)
+    else:
+        pass
+
 
 if __name__ == '__main__':
     video_stream = VideoStream(downsample_scale=8)
     vision_system = setup_vision_system(video_stream.resolution)
     drive_system = DriveSystem(speed_modifier=0.5)
     kicker_system = KickerSystem()
+    nav_system = NavigationSystem(vision_system, drive_system, kicker_system, debug_print=debug_print)
 
     if DEBUG_MODE:
-        debug_toools = setup_debug_tools(video_stream.resolution)
+        debug_tools = setup_debug_tools(video_stream.resolution)
     else:
         debug_tools = None
         
-    print("Beginning mainloop!")
+    debug_print("Beginning mainloop!")
 
     try:
-        mainloop(vision_system, video_stream, drive_system, kicker_system, debug_tools)
+        mainloop(vision_system, video_stream, nav_system, drive_system, kicker_system, debug_tools)
     except KeyboardInterrupt:
-        print("interrupt received, packing up...")
+        debug_print("interrupt received, packing up...")
     finally:
         video_stream.close()
-        cleanup_debug_tools()
+        if DEBUG_MODE:
+            cleanup_debug_tools(debug_tools)
         cv2.destroyAllWindows()
-        print("All done!")
+        debug_print("All done!")
