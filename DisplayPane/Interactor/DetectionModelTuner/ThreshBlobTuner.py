@@ -113,7 +113,7 @@ class ThreshBlobTuner(DetectionModelTunerABC):
 
         def on_change_erosion_dilation(attr):
             def update(change):
-                setattr(thresh, attr, change['new'])
+                thresh[attr] = change['new']
                 self.model_display.update_data_and_display()
             return update
 
@@ -152,8 +152,8 @@ class ThreshBlobTuner(DetectionModelTunerABC):
                     if param_name == 'Area':
                         newMin = math.exp(newMin)
                         newMax = math.exp(newMax)
-                    setattr(self.detection_model.blob_detector_params, 'min' + param_name, newMin)
-                    setattr(self.detection_model.blob_detector_params, 'max' + param_name, newMax)
+                    self.detection_model.blob_detector_params['min' + param_name, newMin]
+                    self.detection_model.blob_detector_params['max' + param_name, newMax]
                     self.model_display.update_data_and_display()
                 return update
 
