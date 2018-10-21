@@ -47,6 +47,9 @@ class NavigationSystem():
                     if len(obstaclesRB) == 1:
                         self.debug_print("1 Obstacle")
                         self.avoidSingleObstacle(bGoalRange, bGoalBearing, obstaclesRB, self.headingRad)
+                    if len(obstaclesRB) == 2:
+                        self.debug_print("2 Obstacle")
+                        self.avoidDoubleObstacle(bGoalRange, bGoalBearing, obstaclesRB, self.headingRad)
                 else:
                     desired_rot_vel = min(self.MAX_ROBOT_ROT, max(-self.MAX_ROBOT_ROT, self.headingRad * self.GOAL_P))
                     desired_vel = self.MAX_ROBOT_VEL * (1.0 - 0.9*abs(desired_rot_vel)/self.MAX_ROBOT_ROT)
@@ -76,6 +79,9 @@ class NavigationSystem():
                     if len(obstaclesRB) == 1:
                         self.debug_print("1 Obstacle")
                         self.avoidSingleObstacle(ballRange, ballBearing, obstaclesRB, self.headingRad)
+                    if len(obstaclesRB) == 2:
+                        self.debug_print("2 Obstacle")
+                        self.avoidDoubleObstacle(ballRange, ballBearing, obstaclesRB, self.headingRad)
                 else:
                     desired_rot_vel = min(self.MAX_ROBOT_ROT, max(-self.MAX_ROBOT_ROT, self.headingRad * self.GOAL_P))
                     desired_vel = self.MAX_ROBOT_VEL * (1.0 - 0.9*abs(desired_rot_vel) / self.MAX_ROBOT_ROT)
@@ -122,7 +128,29 @@ class NavigationSystem():
         else:
             self.drive_system.setTargetVelocities(desired_vel, 0, desired_rot_vel)
 
-
+    def avoidDoubleObstacle(self, goalRange, goalBearing, obstaclesRB, headingRad):
+        obstacle1 = obstaclesRB[0]
+        obstacle2 = obstaclesRB[1]
+        obs_range1 = obstacle1[0]
+        obs_bear1 = obstacle1[1] # Radians
+        obs_range2 = obstacle2[0]
+        obs_bear2 = obstacle2[1] # Radians
+        obs_x1 = obs_range1 * math.sin(obs_bear1)
+        obs_y1 = obs_range1 * math.cos(obs_bear1)
+        obs_x2 = obs_range2 * math.sin(obs_bear2)
+        obs_y2 = obs_range2 * math.cos(obs_bear2)
+        dist_obstaclesx = abs(obs_x1 - obs_x2)
+        dist_obstaclesy = abs(obs_y1 - obs_y2)
+        dist_obstacle = math.sqrt(dist_obstaclesx * dist_obstaclesx + dist_obstaclesy * dist_obstaclesy)
+        chosen_obstacle_range, chosen_obstacle_bear = closestObstacle(obs_range1, obs_bear1, obs_range2, obs_bear2)
+        desired_rot_vel = min(self.MAX_ROBOT_ROT, max(-self.MAX_ROBOT_ROT, self.headingRad * self.GOAL_P))
+        desired_vel = self.MAX_ROBOT_VEL * (1.0 - 0.9*abs(desired_rot_vel) / self.MAX_ROBOT_ROT)
+        if dist_obstacle > 0.4 and (dist_obstaclesy > 0.4 or dist_obstaclesx > 0.4):
+            obstacle = [[chosen_obstacle_range, chosen_obstacle_bear]]
+            self.avoidSingleObstacle(goalRange, goalBearing, obstacle, headingRad)
+        elif dist_obstacle < 0.5:
+            self.drive_system.setTargetVelocities.SetTargetVelocities(desired_vel, 0, chosen_obstacle_bear)
+    
     # Get Attraction Field
     def getAttractionField(self, goal_rad):
         # Field Map with size of 60 degrees scaled to 360 degrees
@@ -202,3 +230,10 @@ def Clip_Deg_60(angle):
     while angle >= 60:
         angle = angle - 60
     return angle
+
+# Returns the closet obstacle
+def closestObstacle(obs_range1, obs_bear1, obs_range2, obs_bear2):
+    if obs_range1 > obs_range2:
+        return obs_range2, obs_bear2
+    else:
+        return obs_range1, obs_bear1
