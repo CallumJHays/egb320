@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from time import time
 
-SHOW_VIDEO = True
+SHOW_VIDEO = False
 
 def relpath(*paths):
     return os.path.join(os.path.dirname(__file__), *paths)
@@ -71,7 +71,7 @@ while True:
 # Define the codec and create VideoWriter object
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 
-cam = VideoStream(downsample_scale=2)
+cam = VideoStream(downsample_scale=8)
 raw_writer = cv2.VideoWriter(filepath() + "_raw.avi", fourcc, 20.0, cam.resolution)
 labelled_writer = cv2.VideoWriter(filepath(), fourcc, 20.0, cam.resolution)
 
@@ -97,7 +97,7 @@ try:
         frame.link_bgr(cv2.putText(
             frame.get(),
             text="FPS: %d" % last_sec_fps,
-            org=(0, 470),
+            org=(15, 15),
             fontFace=cv2.FONT_HERSHEY_PLAIN,
             fontScale=1.5,
             color=(0, 255, 255)

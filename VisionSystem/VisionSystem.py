@@ -3,6 +3,7 @@ import numpy as np
 import math
 from .DetectionModel.ThreshBlob import ThreshBlob
 from .DetectionModel import ColorSpaces
+from multiprocessing import Pool
 
 
 class VisionSystem():
@@ -20,18 +21,19 @@ class VisionSystem():
     ]
 
 
-    def __init__(self, objects_to_track={}):
+    def __init__(self, objects_to_track, camera_pixel_width):
         # objects_to_track <dict<key=str, val=VisualObject>>
         # the objects that the vision system should attempt to track every time
         # update_with_frame() is called
-        self.objects_to_track = objects_to_track
+        self.objects_to_track = objects_to_track or {}
+
+        for _, obj in self.objects_to_track.items():
+            obj.camera_pixel_width = camera_pixel_width
         
 
     def update_with_frame(self, frame):
-        return {
-            key: obj.update_with_frame(frame)
-                for key, obj in self.objects_to_track.items()
-        }
+        for _, obj in self.objects_to_track.items():
+            obj.update_with_frame(frame)
 
 
     def update_with_and_label_frame(self, frame):
@@ -48,10 +50,14 @@ class VisionSystem():
 
                 img = cv2.putText(
                     img,
-                    text="%s%d: %.2fcm@%.0fdeg" % (name, res_idx, distance * 100, bearing * 180 / math.pi),
+                    text="%s%d: %.2fcm@%.0fdeg" % (name, res_idx, distance * 100, math.degrees(bearing)),
                     org=(result.coords[0][0], result.coords[0][1] - 10),
                     fontFace=cv2.FONT_HERSHEY_PLAIN,
                     fontScale=1,
                     color=draw_color
                 )
         return img
+
+
+def update_obj(obj, frame):
+    obj.update_with_frame(frame)

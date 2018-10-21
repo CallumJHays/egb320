@@ -31,15 +31,18 @@ class motors
 
 """
 GPIO.setmode(GPIO.BCM) # Set the GPIO Pin Nameing Convention to BCM
-# Setsting up motor Phase and Enable Outputs
-# Left of kicker
+# Setting up motor Phase and Enable Outputs
+# starting Left of kicker wheels A, B, C finishing with Right of Kicker
 EnableA = 13
-EnableB = 21
+EnableB = 5
 EnableC = 19
 DIRA = 6
-DIRB = 20
+DIRB = 12
 DIRC = 26
 MODE = 16
+
+DribDIR = 21
+DribENA = 20
 
 UpdateMotors = False
 threshold = 0.1
@@ -51,15 +54,17 @@ GPIO.setup(DIRA,GPIO.OUT)
 GPIO.setup(DIRB,GPIO.OUT) # PHASE
 GPIO.setup(DIRC,GPIO.OUT)
 GPIO.setup(MODE,GPIO.OUT)
-GPIO.setup(12,GPIO.OUT)
 GPIO.output(MODE,GPIO.HIGH) # Set MODE pin HIGH on all Drivers - Phase/Enable mode
-GPIO.output(12,GPIO.HIGH) # Set MODE pin HIGH on all Drivers - Phase/Enable mode
+
+GPIO.setup(DribENA,GPIO.OUT)
+GPIO.setup(DribDIR,GPIO.OUT)
 
 # Settingup PWM
 
-pwmA = GPIO.PWM(13, 500) # Initiates PWM signal - Phase
-pwmB = GPIO.PWM(21, 500) # Initiates PWM signal - Phase
-pwmC = GPIO.PWM(19, 500) # Initiates PWM signal - Phase
+pwmA = GPIO.PWM(EnableA, 500) # Initiates PWM signal - Phase
+pwmB = GPIO.PWM(EnableB, 500) # Initiates PWM signal - Phase
+pwmC = GPIO.PWM(EnableC, 500) # Initiates PWM signal - Phase
+pwmDRIB = GPIO.PWM(21,500) # Initiates PWM signal - Dribbler
 
 def TestMotorSetup():
  pwmA.start(50)
@@ -76,8 +81,15 @@ def TestMotorSetup():
  GPIO.output(DIRC,0)
  time.sleep(2)
  pwmC.stop()
+ 
+ pwmDRIB.start(50)
+ GPIO.output(DribDIR,0)
+ time.sleep(2)
+ pwmDRIB.stop()
 
-def MotorControl(Angle, Speed, Acceleration):
+def MotorControl(Angle, Speed, Acceleration): # This Calculates the velocities of three wheels to travel at direction Theta Without Spining
+# if V = 0, Robot will rotate at Velocity of A.
+# else Velocity of A will be added to V for simultanious Rotation and Translation 
  theta = Angle # converts Input Radians to Degrees
  V = Speed
  A = Acceleration
@@ -88,7 +100,8 @@ def MotorControl(Angle, Speed, Acceleration):
  MotorControl.Vc = abs(V)*((math.sqrt(3)/2)*math.cos(theta) + 0.5*math.sin(theta)) + A*L
  print(MotorControl.Va, MotorControl.Vb, MotorControl.Vc)
  
-def DriveMotors(A, B, C):
+def DriveMotors(A, B, C): # Converts & Caps Individual Motor Values at PWM of 100
+
  a=A
  b=B
  c=C   
@@ -105,26 +118,26 @@ def DriveMotors(A, B, C):
 
  
  print(DutyA,DutyB,DutyC)
-
-           # LEFT Wheel - working
+ # Below: Sets the - Velocities to flip direction of rotating wheel
+ # LEFT Wheel - working
  pwmA.start(DutyA)
  if a < 0:
-    GPIO.output(6,0)
+    GPIO.output(DIRA,0)
  else:
-    GPIO.output(6,1)
+    GPIO.output(DIRA,1)
 # BACK Wheel - working
  pwmB.start(DutyB)
  if b < 0:
-    GPIO.output(20,0)
+    GPIO.output(DIRB,0)
  else:
-    GPIO.output(20,1)
+    GPIO.output(DIRB,1)
 
 # RIGHT Wheel - working
  pwmC.start(DutyC)
  if c < 0:
-    GPIO.output(26,1)
+    GPIO.output(DIRC,1)
  else:
-    GPIO.output(26,0)
+    GPIO.output(DIRC,0)
  
 def ControlAngle(Horizontal, Vertical):
     H = Horizontal
@@ -133,7 +146,7 @@ def ControlAngle(Horizontal, Vertical):
     Rad = math.atan2(H,V)
     if Rad<0: # switch Degrees -180 to 180 -> 360
         Rad = (Rad)+2*math.pi
-# Correct Orientation for Controller
+  # Correct Orientation for Controller
         
         """
     if Rad<=(math.pi/2):
@@ -144,31 +157,19 @@ def ControlAngle(Horizontal, Vertical):
     
     print(math.degrees(Rad))
     return(Rad)
-
-def Rotate(ControlValue):
- if ControlValue>0.2: # Rotate Right
-    GPIO.output(DIRA,1)
-    GPIO.output(DIRB,1)
-    GPIO.output(DIRC,0)
-    pwmA.start(60)
-    pwmB.start(60)
-    pwmC.start(60)
-    
- if ControlValue<-0.2: # Rotate Left
-    GPIO.output(DIRA,0)
-    GPIO.output(DIRB,0)
-    GPIO.output(DIRC,1)
-    pwmA.start(60)
-    pwmB.start(60)
-    pwmC.start(60)
-    return
     
  
     
-def BrakeMotors():
+def BrakeMotors(): # Turns Motors off if Nothing is being called.
     pwmA.start(0)
     pwmB.start(0)
     pwmC.start(0)
+    
+def Dribbler(On):
+  if On == True:
+    pwmDRIB.start(80)
+  else:
+    pwmDRIB.start(0)
     
 # Quickly Test All Motors are Turning in correct direction at speed
 TestMotorSetup()  
@@ -188,23 +189,25 @@ while True:
             
             
             SpeedModifier = 0.25 * j.get_axis(13) + 0.75
-            Direction = ControlAngle(j.get_axis(0),j.get_axis(1))
-            MotorControl((Direction),0.5 ,j.get_axis(2)) # angle = ControlAngle(j.get_axis(0),j.get_axis(1))
+            Direction = ControlAngle(j.get_axis(0),j.get_axis(1)*4) # takes x and y inputs from joystick
+            MotorControl((Direction),0.5 ,j.get_axis(2)*4) # angle = ControlAngle(j.get_axis(0),j.get_axis(1))
             DriveMotors(MotorControl.Va * SpeedModifier, MotorControl.Vb * SpeedModifier, MotorControl.Vc * SpeedModifier)
             print(MotorControl.Va * SpeedModifier, MotorControl.Vb * SpeedModifier, MotorControl.Vc * SpeedModifier)
             
-        if j.get_axis(14) > (-0.2) and (j.get_axis(0)<threshold and j.get_axis(0)<(threshold*-1)):
-            
-            Rotate(j.get_axis(2)) # Rotate to second joystick Horizontal input
+        if j.get_axis(14) > (-0.2):
+            Dribbler(True)
+        else:
+            Dribbler(False)    
     
             
-        elif UpdateMotors == False:
+        if UpdateMotors == False:
             BrakeMotors()
         time.sleep(0.1) # Debuging Perposes - Limits Loop speed to make reading console easier
-    except(KeyboardInterrupt):
+    except(KeyboardInterrupt): # Turn off all output signals, Prevents 
         raw_input('press a key to stop:')
         pwmA.stop() # Stops PWM
         pwmB.stop() # Stops PWM
         pwmC.stop() # Stops PWM
+        pwmDRIB.stop() # Stops Dribbler PWM
         GPIO.cleanup()
         quit()

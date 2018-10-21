@@ -34,7 +34,10 @@ class ThreshBlobTuner(DetectionModelTunerABC):
             size=self.display_pane.size,
             interactors=[colorspace_picker],
             filter_fn=threshold_with_color,
-            vision_system=VisionSystem({ 'obj': VisualObject(detection_model=self.detection_model) })
+            vision_system=VisionSystem(
+                objects_to_track={ 'obj': VisualObject(detection_model=self.detection_model) },
+                camera_pixel_width=self.display_pane.video_stream.resolution[0]
+            )
         )
         self.model_display.link_frame(self.display_pane)
         channel_sliders = []
@@ -129,8 +132,8 @@ class ThreshBlobTuner(DetectionModelTunerABC):
 
         for param_name in param_names:
             slider_value = (
-                getattr(self.detection_model.blob_detector_params, 'min' + param_name),
-                getattr(self.detection_model.blob_detector_params, 'max' + param_name)
+                self.detection_model.blob_detector_params['min' + param_name],
+                self.detection_model.blob_detector_params['max' + param_name]
             )
 
             # make sure maxArea is only set to the number of pixels on the screen
@@ -138,8 +141,8 @@ class ThreshBlobTuner(DetectionModelTunerABC):
                 length, width, _ = self.model_display.raw_frame.get(ColorSpaces.BGR).shape
                 max_exponent = math.log(length * width)
                 slider_range = (1, max_exponent)
-                self.detection_model.blob_detector_params.maxArea = length * width
-                slider_value = (math.log(slider_value[0]), math.log(self.detection_model.blob_detector_params.maxArea))
+                self.detection_model.blob_detector_params['maxArea'] = length * width
+                slider_value = (math.log(slider_value[0]), math.log(self.detection_model.blob_detector_params['maxArea']))
             else:
                 slider_range = (0.0, 1.0)
 

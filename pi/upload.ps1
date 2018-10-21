@@ -1,1 +1,1 @@
-scp -r .\soccer_robot\. ..\VisionSystem ..\DriveSystem ..\NavigationSystem ..\KickerSystem ..\detection_models pi@10.0.0.78:~/Desktop/soccer_robot
+scp -r ..\main.py .\soccer_robot\. ..\VisionSystem ..\DriveSystem ..\NavigationSystem ..\KickerSystem ..\detection_models pi@172.19.44.35:~/Desktop/soccer_robot

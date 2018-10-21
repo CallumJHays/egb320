@@ -1,1 +1,1 @@
-ssh pi@10.0.0.78:~/Desktop/soccer_robot
+ssh pi@172.19.44.35

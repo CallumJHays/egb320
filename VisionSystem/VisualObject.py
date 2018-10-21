@@ -5,16 +5,17 @@ from .DetectionModel import DetectionResult
 class VisualObject():
 
     # camera is 62.2 degrees wide
-    CAMERA_FOV = 62.2 * math.pi / 180
-    CAMERA_PIXEL_WIDTH = 640
+    CAMERA_FOV = math.radians(62.2)
     FORWARD_DIRECTION = 0
     FOCAL_CONSTANT = 250
 
     
-    def __init__(self, real_size=(0, 0, 0),  detection_model=None, result_limit=None):
+    def __init__(self, real_size=None,  detection_model=None, result_limit=None, camera_width=None):
+        self.camera_pixel_width = camera_width
+
         # real_size <tupe<float, float, float>>
         # real size of object needing detection in metres
-        self.real_size = real_size
+        self.real_size = real_size or (1, 1, 1)
         
         # detection_model <DetectionModel>
         # the model to be used by the vision system for detection of this object
@@ -36,13 +37,13 @@ class VisualObject():
         
     def update_with_frame(self, frame):
         self.detection_results = self.detection_model.apply(frame)
-        results = sorted(self.detection_results, key=lambda result: -result.area())
+        self.detection_results = sorted(self.detection_results, key=lambda result: -result.area())
         if self.result_limit is not None:
-            results = results[0:self.result_limit]
+            self.detection_results = self.detection_results[0:self.result_limit]
         self.bearings_distances = []
 
-        for result in results:
-            bearing = ((result.coords[0][0] + result.coords[1][0]) / 2 / self.CAMERA_PIXEL_WIDTH - 0.5) * self.CAMERA_FOV + self.FORWARD_DIRECTION
+        for result in self.detection_results:
+            bearing = ((result.coords[0][0] + result.coords[1][0]) / 2 / self.camera_pixel_width - 0.5) * self.CAMERA_FOV + self.FORWARD_DIRECTION
             pixel_width = result.coords[1][0] - result.coords[0][0]
             pixel_height = result.coords[1][1] - result.coords[0][1]
 
